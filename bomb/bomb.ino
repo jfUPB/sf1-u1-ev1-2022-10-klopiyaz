@@ -6,6 +6,9 @@
 #define DOWN_BTN 32
 #define ARM_BTN 33
 
+bool erBTNS = false;
+uint8_t erBTNSData = 0;
+
 // Selecciona uno según tu display.
 SSD1306Wire display(0x3c, SDA, SCL, GEOMETRY_64_48);
 
@@ -134,4 +137,5 @@ void setup() {
 
 void loop() {
   taskBomb();
+  btnsTask();
 }
