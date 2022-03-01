@@ -79,8 +79,7 @@ void taskBomb() {
       }
 
     case Estado_de_bomba::WAITING_RELEASE: {
-        if ( (millis() - tiempoReferencia) > 110) {
-
+        if ((millis() - tiempoReferencia) > 100) {
           switch (button) {
             case UP_BTN: {
                 if (digitalRead(UP_BTN) == HIGH ) {
@@ -113,6 +112,11 @@ void taskBomb() {
                     delay(1000);
                     digitalWrite(LED_COUNT, LOW);
                     Serial.println(bombCounter);
+                    if (bombCounter >= 5) {
+                      digitalWrite(LED_COUNT, HIGH);
+                      delay(100);
+                      digitalWrite(LED_COUNT, LOW);
+                    }
                   }
 
                   if (bombCounter == 0) {
@@ -147,55 +151,8 @@ void taskBomb() {
         break;
       }
   }
-  if (erBTNS == true) {
-    erBTNS = false;
-    if ( (millis() - tiempoReferencia) > 95) {
-
-      switch (button) {
-        case UP_BTN: {
-            if (digitalRead(UP_BTN) == HIGH ) {
-              if (bombCounter < 60 ) {
-                bombCounter++;
-              }
-              estadodebomba =  Estado_de_bomba::WAITING_PRESS;
-              Serial.println(bombCounter);
-            }
-            break;
-          }
-        case DOWN_BTN: {
-            if (  digitalRead(DOWN_BTN) == HIGH ) {
-              if (bombCounter > 10 ) {
-                bombCounter--;
-              }
-              estadodebomba =  Estado_de_bomba::WAITING_PRESS;
-              Serial.println(bombCounter);
-            }
-            break;
-          }
-        case ARM_BTN: {
-            if (digitalRead(ARM_BTN) == HIGH) {
-              uint8_t currentMillis = millis();
-              static uint8_t previousMillis = 0;
-              if (currentMillis - previousMillis >= bombCounter) {
-                previousMillis = currentMillis;
-                bombCounter --;
-                digitalWrite(LED_COUNT, HIGH);
-                delay(1000);
-                digitalWrite(LED_COUNT, LOW);
-                Serial.println(bombCounter);
-              }
-
-              if (bombCounter == 0) {
-                estadodebomba =  Estado_de_bomba::EXPLOTO;
-              }
-            }
-
-          }
-          break;
-      }
-    }
-  }
-
+}
+void lcdTask() {
 }
 
 void setup() {
@@ -205,4 +162,5 @@ void setup() {
 void loop() {
   taskBomb();
   btnsTask();
+  lcdTask();
 }
