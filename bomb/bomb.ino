@@ -11,6 +11,18 @@ uint8_t erBTNSData = 0;
 
 // Selecciona uno según tu display.
 SSD1306Wire display(0x3c, SDA, SCL, GEOMETRY_64_48);
+void btnsTask() {
+  if (digitalRead(UP_BTN) == LOW) {
+    erBTNS = true;
+    erBTNSData = UP_BTN;
+  } else if (digitalRead(DOWN_BTN) == LOW) {
+    erBTNS = true;
+    erBTNS = DOWN_BTN;
+  } else if (digitalRead(ARM_BTN) == LOW) {
+    erBTNS = true;
+    erBTNS = ARM_BTN;
+  }
+}
 
 void taskBomb() {
   enum class Estado_de_bomba {INIT, WAITING_PRESS, WAITING_RELEASE, EXPLOTO, BOMBA_ACTIVA, BOMBA_DESACTIVA};
@@ -67,7 +79,7 @@ void taskBomb() {
       }
 
     case Estado_de_bomba::WAITING_RELEASE: {
-        if ( (millis() - tiempoReferencia) > 250 ) {
+        if ( (millis() - tiempoReferencia) > 100) {
 
           switch (button) {
             case UP_BTN: {
@@ -88,15 +100,23 @@ void taskBomb() {
                   estadodebomba =  Estado_de_bomba::WAITING_PRESS;
                   Serial.println(bombCounter);
                 }
-
                 break;
               }
             case ARM_BTN: {
                 if (digitalRead(ARM_BTN) == HIGH) {
-                  estadodebomba = Estado_de_bomba::BOMBA_ACTIVA;
+                  uint8_t currentMillis = millis();
+                  static uint8_t previousMillis = 0;
+                  if (currentMillis - previousMillis >= bombCounter) {
+                    previousMillis = currentMillis;
+                    bombCounter --;
+                    delay(1000);
+                    Serial.println(bombCounter);
+                    if (bombCounter == 0) {
+                      estadodebomba =  Estado_de_bomba::EXPLOTO;
+                    }
+                  }
+
                 }
-
-
                 break;
               }
           }
@@ -107,27 +127,23 @@ void taskBomb() {
       }
     case Estado_de_bomba::BOMBA_ACTIVA: {
 
-        uint8_t currentMillis = millis();
-        static uint8_t previousMillis = 0;
-        Serial.println(currentMillis);
-        delay(1000);
-        if (currentMillis - previousMillis >= bombCounter) {
-          previousMillis = currentMillis;
-
-        }
         break;
       }
     case Estado_de_bomba::EXPLOTO: {
 
         break;
       }
+    case Estado_de_bomba::BOMBA_DESACTIVA: {
 
+        break;
+      }
 
     default: {
         Serial.println("Error");
         break;
       }
   }
+
 
 }
 
