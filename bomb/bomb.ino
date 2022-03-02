@@ -147,6 +147,43 @@ void taskBomb() {
   }
 }
 void lcdTask() {
+  static uint8_t counter = 0;
+  static uint32_t oldTime = 0;
+  uint32_t newTime;
+  static int x = 10;
+  static int y = 20;
+
+  if (Serial.available() > 0) {
+    Serial.print("Hello from ESP32!\n");
+    int dataRx = Serial.read();
+    if (dataRx == digitalRead(ARM_BTN)) {
+      digitalWrite(LED_COUNT, HIGH);
+      delay(1000);
+      digitalWrite(LED_COUNT, LOW);
+    }
+    else if (dataRx == digitalRead(DOWN_BTN) && dataRx == digitalRead(UP_BTN)) {
+      digitalWrite(BOMB_OUT, HIGH);
+    }
+    else if (dataRx == 'r') {
+      Serial.print(digitalRead(UP_BTN));
+      Serial.print(',');
+      Serial.print(digitalRead(DOWN_BTN));
+      Serial.print(',');
+      Serial.print(digitalRead(ARM_BTN));
+      Serial.print('\n');
+    }
+    else if (dataRx == 'd') {
+      display.setTextAlignment(TEXT_ALIGN_LEFT);
+      display.setFont(ArialMT_Plain_16);
+      counter = (counter + 1) % 20;
+    }
+    else if (dataRx == 'c') {
+      String xy = Serial.readStringUntil('*');
+      int indexOfComma = xy.indexOf(',');
+      x = xy.substring(0, indexOfComma).toInt();
+      y = xy.substring(indexOfComma + 1).toInt();
+    }
+  }
 }
 
 void setup() {
@@ -156,5 +193,5 @@ void setup() {
 void loop() {
   taskBomb();
   btnsTask();
-  lcdTask();
+  //lcdTask();
 }
