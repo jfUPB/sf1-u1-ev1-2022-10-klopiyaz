@@ -49,7 +49,7 @@ void taskBomb() {
         display.setFont(ArialMT_Plain_16);
 
 
-        bombCounter = 9;
+        bombCounter = 20;
         display.clear();
         display.drawString(10, 20, String(bombCounter));
         display.display();
@@ -113,7 +113,6 @@ void taskBomb() {
                     digitalWrite(LED_COUNT, LOW);
                     Serial.println(bombCounter);
                   }
-
                   if (bombCounter == 0) {
                     estadodebomba =  Estado_de_bomba::EXPLOTO;
                   }
