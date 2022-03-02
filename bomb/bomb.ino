@@ -49,7 +49,7 @@ void taskBomb() {
         display.setFont(ArialMT_Plain_16);
 
 
-        bombCounter = 20;
+        bombCounter = 9;
         display.clear();
         display.drawString(10, 20, String(bombCounter));
         display.display();
@@ -112,11 +112,6 @@ void taskBomb() {
                     delay(1000);
                     digitalWrite(LED_COUNT, LOW);
                     Serial.println(bombCounter);
-                    if (bombCounter >= 5) {
-                      digitalWrite(LED_COUNT, HIGH);
-                      delay(100);
-                      digitalWrite(LED_COUNT, LOW);
-                    }
                   }
 
                   if (bombCounter == 0) {
