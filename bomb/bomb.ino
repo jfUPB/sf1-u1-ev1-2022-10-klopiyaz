@@ -5,7 +5,7 @@
 #define DOWN_BTN 32
 #define ARM_BTN 33
 
-SSD1306Wire display(0x3c, SDA, SCL, GEOMETRY_128_32);
+SSD1306Wire display(0x3c, SDA, SCL, GEOMETRY_64_48);
 bool evBtns = false;
 uint8_t evBtnsData = 0;
 
@@ -111,7 +111,7 @@ void btnsTask() {
         break;
       }
     default:
-      Serial.println("Error");
+      Serial.println("Ocurrio un error.");
       break;
   }
 }
@@ -123,7 +123,22 @@ void bombtask() {
   switch (bombState) {
 
     case BombStates::INIT: {
+        pinMode(BOMB_OUT, OUTPUT);
+        pinMode(LED_COUNT, OUTPUT);
 
+        // LED_COUNT encendido
+        digitalWrite(LED_COUNT, HIGH);
+        digitalWrite(BOMB_OUT, LOW); 
+        // Init display
+        display.init();
+        display.setContrast(255);
+        display.clear();
+        display.setTextAlignment(TEXT_ALIGN_LEFT);
+        display.setFont(ArialMT_Plain_16);
+
+        display.clear();
+        display.drawString(0, 5, String(counter));
+        display.display();
 
         bombState = BombStates::CONFIG;
 
@@ -131,15 +146,119 @@ void bombtask() {
       }
     case BombStates::CONFIG: {
 
+        display.clear();
+        display.drawString(0, 5, String(counter));
+        display.display();
 
+        if (evBtns == true) {
+          evBtns = false;
+
+          if (((evBtnsData == UP_BTN) == LOW) && (counter < 60) ) {
+            counter++ ;
+            display.clear();
+            display.drawString(0, 5, String(counter));
+            display.display();
+          }
+          if (((evBtnsData == DOWN_BTN) == LOW) && (counter > 10)) {
+            counter-- ;
+            display.clear();
+            display.drawString(0, 5, String(counter));
+            display.display();
+          }
+
+          if (evBtnsData == ARM_BTN ) {
+            bombState = BombStates::ARMED;
+          }
+        }
         break;
       }
     case BombStates::ARMED: {
 
-      default: {
+        const uint8_t vecLength = 7;
+        static uint8_t vecTryPassword[vecLength];
+        static uint8_t dataCounter = 0;
+        static uint8_t vecTruePassword[vecLength] = {UP_BTN, UP_BTN, DOWN_BTN, DOWN_BTN, UP_BTN, DOWN_BTN, ARM_BTN};
+        bool statePassword = false;
+        const uint32_t interval = 500;
+        static uint32_t previousMillis = 0;
+        static uint8_t ledState_BOMB_OUT = LOW;
+        uint32_t currentMillis = millis();
+
+        if (currentMillis - previousMillis >= interval) {
+          previousMillis = currentMillis;
+          if (ledState_BOMB_OUT == LOW) {
+            ledState_BOMB_OUT = HIGH;
+          }
+          else {
+            ledState_BOMB_OUT = LOW;
+            counter--;
+            display.clear();
+            display.drawString(0, 5, String(counter));
+            display.display();
+          }
+          digitalWrite(LED_COUNT, ledState_BOMB_OUT);
+          if (counter == 0) {
+            digitalWrite(LED_COUNT, LOW);
+            digitalWrite(BOMB_OUT, HIGH);
+            display.clear();
+            display.drawString(0, 5, "BOOM");
+            display.display();
+            delay(3000);
+            digitalWrite(LED_COUNT, HIGH);
+            digitalWrite(BOMB_OUT, LOW);
+            counter = 20;
+            display.clear();
+            display.drawString(0, 5, String(counter));
+            display.display();
+            bombState = BombStates::CONFIG;
+          }
         }
-        break;
+
+        if (evBtns == true) {
+          evBtns = false;
+          if (dataCounter < vecLength) {
+            if (evBtnsData == UP_BTN) {
+              vecTryPassword[dataCounter] = evBtnsData;
+            }
+            else if (evBtnsData == DOWN_BTN) {
+              vecTryPassword[dataCounter] = evBtnsData;
+            }
+            else if (evBtnsData == ARM_BTN) {          
+              vecTryPassword[dataCounter] = evBtnsData;
+            }
+            dataCounter++;
+          }
+        }
+        else if (dataCounter == vecLength) { 
+          Serial.println("Vector password lleno.");
+          disarmTask(vecTryPassword, vecTruePassword, vecLength, &statePassword); 
+          if (statePassword == true) { 
+            Serial.println("Contraseña correcta");
+            digitalWrite(LED_COUNT, HIGH);
+            digitalWrite(BOMB_OUT, LOW);
+            counter = 20;
+            display.clear();
+            display.drawString(0, 5, String(counter));
+            display.display();
+            dataCounter = 0;
+            for (uint8_t j = 0; j < vecLength; j++) {
+              vecTryPassword[j] = 0;
+            }
+            bombState = BombStates::CONFIG;
+          }
+          else { 
+            Serial.println("Contraseña incorrecta");
+            dataCounter = 0;
+            for (uint8_t k = 0; k < vecLength; k++) {
+              vecTryPassword[k] = 0;
+            }
+          }
+        }
       }
+      break;
+    default: {
+      }
+      break;
   }
 }
 void disarmTask(uint8_t *vecTryData, uint8_t *vecTrueData, uint8_t vecLengthData, bool *res) {
