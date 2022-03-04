@@ -1,197 +1,159 @@
 #include "SSD1306Wire.h"
-
 #define BOMB_OUT 25
 #define LED_COUNT 26
 #define UP_BTN 13
 #define DOWN_BTN 32
 #define ARM_BTN 33
 
-bool erBTNS = false;
-uint8_t erBTNSData = 0;
+SSD1306Wire display(0x3c, SDA, SCL, GEOMETRY_128_32);
+bool evBtns = false;
+uint8_t evBtnsData = 0;
 
-// Selecciona uno según tu display.
-SSD1306Wire display(0x3c, SDA, SCL, GEOMETRY_64_48);
-void btnsTask() {
-  if (digitalRead(UP_BTN) == LOW) {
-    erBTNS = true;
-    erBTNSData = UP_BTN;
-  } else if (digitalRead(DOWN_BTN) == LOW) {
-    erBTNS = true;
-    erBTNS = DOWN_BTN;
-  } else if (digitalRead(ARM_BTN) == LOW) {
-    erBTNS = true;
-    erBTNS = ARM_BTN;
-  }
+void bombtask();
+void btnsTask();
+
+void setup() {
+  Serial.begin(115200);
+  bombtask();
+  btnsTask();
 }
+void btnsTask() {
+  enum class BtnsStates {INIT, WAITING_PRESS , WAITING_STABLE, WAITING_RELEASE};
+  static BtnsStates btnsState =  BtnsStates::INIT;
+  static uint32_t referenceTime;
+  const uint32_t STABLETIMEOUT = 10;
+  static uint8_t lastBtn = 0;
 
-void taskBomb() {
-  enum class Estado_de_bomba {INIT, WAITING_PRESS, WAITING_RELEASE, EXPLOTO, BOMBA_ACTIVA, BOMBA_DESACTIVA};
-  static Estado_de_bomba estadodebomba =  Estado_de_bomba::INIT;
-  static uint8_t bombCounter;
-  static uint8_t button;
-
-  static uint32_t tiempoReferencia;
-
-  switch (estadodebomba) {
-    case Estado_de_bomba::INIT: {
-
-        Serial.begin(115200);
-        pinMode(UP_BTN, INPUT_PULLUP);
-        pinMode(DOWN_BTN, INPUT_PULLUP);
+  switch (btnsState) {
+    case BtnsStates::INIT: {
         pinMode(ARM_BTN, INPUT_PULLUP);
-        pinMode(BOMB_OUT, OUTPUT);
-        pinMode(LED_COUNT, OUTPUT);
-
-        display.init();
-        display.setContrast(255);
-        display.clear();
-        display.setTextAlignment(TEXT_ALIGN_LEFT);
-        display.setFont(ArialMT_Plain_16);
-
-
-        bombCounter = 20;
-        display.clear();
-        display.drawString(10, 20, String(bombCounter));
-        display.display();
-
-        Serial.println("Estado_de_bomba::INIT");
-
-        estadodebomba =  Estado_de_bomba::WAITING_PRESS;
+        pinMode(DOWN_BTN, INPUT_PULLUP);
+        pinMode(UP_BTN, INPUT_PULLUP);
+        btnsState = BtnsStates::WAITING_PRESS;
         break;
       }
+    case BtnsStates::WAITING_PRESS: {
 
-    case Estado_de_bomba::WAITING_PRESS: {
-        if (digitalRead(UP_BTN) == LOW ) {
-          tiempoReferencia = millis();
-          estadodebomba =  Estado_de_bomba::WAITING_RELEASE;
-          button = UP_BTN;
+        if (digitalRead(UP_BTN) == LOW) {
+          referenceTime = millis();
+          lastBtn = UP_BTN;
+          btnsState = BtnsStates::WAITING_STABLE;
+
         }
-        else if (  digitalRead(DOWN_BTN) == LOW ) {
-          tiempoReferencia = millis();
-          estadodebomba =  Estado_de_bomba::WAITING_RELEASE;
-          button = DOWN_BTN;
-        } else if (digitalRead(ARM_BTN) == LOW) {
-          tiempoReferencia = millis();
-          estadodebomba = Estado_de_bomba::WAITING_RELEASE;
-          button = ARM_BTN;
+        else if (digitalRead(DOWN_BTN) == LOW) {
+          lastBtn = DOWN_BTN;
+          referenceTime = millis();
+          btnsState = BtnsStates::WAITING_STABLE;
+
+        }
+        else if (digitalRead(ARM_BTN) == LOW) {
+          lastBtn = ARM_BTN;
+          referenceTime = millis();
+          btnsState = BtnsStates::WAITING_STABLE;
+        }
+
+        break;
+      }
+    case BtnsStates::WAITING_STABLE: {
+        if (lastBtn == UP_BTN) {
+          if (digitalRead(UP_BTN) == HIGH) {
+            btnsState = BtnsStates::WAITING_PRESS;
+          }
+          else if ( (millis() - referenceTime) >= STABLETIMEOUT) {
+            btnsState = BtnsStates::WAITING_RELEASE;
+          }
+        }
+        else if (lastBtn == DOWN_BTN) {
+          if (digitalRead(DOWN_BTN) == HIGH) {
+            btnsState = BtnsStates::WAITING_PRESS;
+          }
+          else if ( (millis() - referenceTime) >= STABLETIMEOUT) {
+            btnsState = BtnsStates::WAITING_RELEASE;
+          }
+        }
+        else if (lastBtn == ARM_BTN) {
+          if (digitalRead(ARM_BTN) == HIGH) {
+            btnsState = BtnsStates::WAITING_PRESS;
+          }
+          else if ( (millis() - referenceTime) >= STABLETIMEOUT) {
+            btnsState = BtnsStates::WAITING_RELEASE;
+          }
         }
         break;
       }
+    case BtnsStates::WAITING_RELEASE: {
 
-    case Estado_de_bomba::WAITING_RELEASE: {
-        if ((millis() - tiempoReferencia) > 100) {
-          switch (button) {
-            case UP_BTN: {
-                if (digitalRead(UP_BTN) == HIGH ) {
-                  if (bombCounter < 60 ) {
-                    bombCounter++;
-                  }
-                  estadodebomba =  Estado_de_bomba::WAITING_PRESS;
-                  Serial.println(bombCounter);
-                }
-                break;
-              }
-            case DOWN_BTN: {
-                if (  digitalRead(DOWN_BTN) == HIGH ) {
-                  if (bombCounter > 10 ) {
-                    bombCounter--;
-                  }
-                  estadodebomba =  Estado_de_bomba::WAITING_PRESS;
-                  Serial.println(bombCounter);
-                }
-                break;
-              }
-            case ARM_BTN: {
-                if (digitalRead(ARM_BTN) == HIGH) {
-                  uint8_t currentMillis = millis();
-                  static uint8_t previousMillis = 0;
-                  if (currentMillis - previousMillis >= bombCounter) {
-                    previousMillis = currentMillis;
-                    bombCounter --;
-                    digitalWrite(LED_COUNT, HIGH);
-                    delay(1000);
-                    digitalWrite(LED_COUNT, LOW);
-                    Serial.println(bombCounter);
-                  }
-                  if (bombCounter == 0) {
-                    estadodebomba =  Estado_de_bomba::EXPLOTO;
-                  }
-                }
-
-              }
-              break;
+        if (lastBtn == UP_BTN) {
+          if (digitalRead(UP_BTN) == HIGH) {
+            evBtns = true;
+            evBtnsData = UP_BTN;
+            btnsState = BtnsStates::WAITING_PRESS;
+            Serial.println("UP_BTN");
+          }
+        }
+        else if (lastBtn == DOWN_BTN) {
+          if (digitalRead(DOWN_BTN) == HIGH) {
+            evBtns = true;
+            evBtnsData = DOWN_BTN;
+            btnsState = BtnsStates::WAITING_PRESS;
+            Serial.println("DOWN_BTN");
+          }
+        }
+        else if (lastBtn == ARM_BTN) {
+          if (digitalRead(ARM_BTN) == HIGH) {
+            evBtns = true;
+            evBtnsData = ARM_BTN;
+            btnsState = BtnsStates::WAITING_PRESS;
+            Serial.println("ARM_BTN");
           }
         }
 
+        break;
       }
-
+    default:
+      Serial.println("Error");
       break;
+  }
+}
+void bombtask() {
+  enum class BombStates {INIT, CONFIG, ARMED};
+  static BombStates bombState =  BombStates::INIT;
+  static uint8_t counter = 20;
 
-    case Estado_de_bomba::BOMBA_ACTIVA: {
+  switch (bombState) {
+
+    case BombStates::INIT: {
+
+
+        bombState = BombStates::CONFIG;
 
         break;
       }
-    case Estado_de_bomba::EXPLOTO: {
-        Serial.println("BOOM!!");
-        break;
-      }
-    case Estado_de_bomba::BOMBA_DESACTIVA: {
+    case BombStates::CONFIG: {
+
 
         break;
       }
+    case BombStates::ARMED: {
 
-    default: {
-        Serial.println("Error");
+      default: {
+        }
         break;
       }
   }
 }
-void lcdTask() {
-  static uint8_t counter = 0;
-  static uint32_t oldTime = 0;
-  uint32_t newTime;
-  static int x = 10;
-  static int y = 20;
-
-  if (Serial.available() > 0) {
-    Serial.print("Hello from ESP32!\n");
-    int dataRx = Serial.read();
-    if (dataRx == digitalRead(ARM_BTN)) {
-      digitalWrite(LED_COUNT, HIGH);
-      delay(1000);
-      digitalWrite(LED_COUNT, LOW);
+void disarmTask(uint8_t *vecTryData, uint8_t *vecTrueData, uint8_t vecLengthData, bool *res) {
+  for (uint8_t i = 0; i < vecLengthData; i++) {
+    if (vecTrueData[i] == vecTryData[i]) {
+      *res = true;
     }
-    else if (dataRx == digitalRead(DOWN_BTN) && dataRx == digitalRead(UP_BTN)) {
-      digitalWrite(BOMB_OUT, HIGH);
-    }
-    else if (dataRx == 'r') {
-      Serial.print(digitalRead(UP_BTN));
-      Serial.print(',');
-      Serial.print(digitalRead(DOWN_BTN));
-      Serial.print(',');
-      Serial.print(digitalRead(ARM_BTN));
-      Serial.print('\n');
-    }
-    else if (dataRx == 'd') {
-      display.setTextAlignment(TEXT_ALIGN_LEFT);
-      display.setFont(ArialMT_Plain_16);
-      counter = (counter + 1) % 20;
-    }
-    else if (dataRx == 'c') {
-      String xy = Serial.readStringUntil('*');
-      int indexOfComma = xy.indexOf(',');
-      x = xy.substring(0, indexOfComma).toInt();
-      y = xy.substring(indexOfComma + 1).toInt();
+    else {
+      *res = false;
+      break;
     }
   }
 }
-
-void setup() {
-  taskBomb();
-}
-
 void loop() {
-  taskBomb();
+  bombtask();
   btnsTask();
-  //lcdTask();
 }
